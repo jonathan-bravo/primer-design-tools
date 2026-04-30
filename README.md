@@ -92,7 +92,7 @@ The executable will be generated as `bin/dpro`.
 ### Advanced Configuration
 ```bash
 # High-throughput analysis
-./bin/dpro all \
+./bin/dpro \
   -i large_dataset.fasta \
   -o analysis_results/ \
   -r combined_genomes.fna \
@@ -101,7 +101,7 @@ The executable will be generated as `bin/dpro`.
   -B 16384
 
 # Custom thermodynamic conditions
-./bin/dpro all \
+./bin/dpro \
   -i primers.fasta \
   -o filtered_results/ \
   -r host_genome.fna \
@@ -111,7 +111,6 @@ The executable will be generated as `bin/dpro`.
 ```
 
 ## Input Format
-
 - **Input**: FASTA format with target sequences
 - **Reference**: FASTA format reference genomes (optional)
 
