@@ -1,34 +1,26 @@
+
 # DPRO - Primer Design and Off-Target Analysis Tool
 
-A comprehensive C++ tool for primer design optimization and off-target screening. DPRO provides an integrated pipeline for primer analysis workflows including design region optimization, dimer checking, and off-target analysis with advanced filtering capabilities.
-
-## Features
-
-- **Integrated Pipeline**: Complete primer analysis from design through off-target screening
-- **Advanced Filtering**: Thermodynamic-based primer quality control with detailed removal reporting
-- **Multi-threaded Processing**: Optimized for large reference genomes and high-throughput analysis
-- **Comprehensive Reporting**: Detailed tables showing filtered primers and summary statistics
-- **Flexible Parameters**: Customizable thermodynamic and search parameters
+DPRO is a comprehensive C++ tool for multiplex PCR primer design optimization and tiling that implements a four-stage pipeline: PDR (Primer Design Region) optimization to identify high-quality, conserved regions with sufficient primer candidates; primer selection using the established Primer3 algorithm to generate high-quality primer pairs with proper thermodynamic constraints; off-target screening against reference databases using k-mer based searching to filter primers with potential off-target binding; and dimer minimization using multiple optimization algorithms to select primer sets with minimal primer-dimer formation potential, ensuring both specificity and compatibility for successful multiplex PCR amplification and tiling coverage.
 
 ## Installation
 
 ### Prerequisites
-- C++17 compatible compiler (GCC 7+, Clang 5+)
-- Standard C++ libraries (`<thread>`, `<atomic>`, `<unordered_map>`)
-- POSIX-compliant system (Linux/macOS)
+- **C++17 compatible compiler** (GCC 7+, Clang 5+)
+- **Primer3 library** (https://github.com/primer3-org/primer3)
 
 ### Build
 ```bash
 git clone <repo_url>
 cd primer-design-tools
-make
+make PRIMER3=/path/to/primer3
 ```
 The executable will be generated as `bin/dpro`.
 
 ## Usage
 
 ```bash
-./bin/dpro all -i <input> -o <output> [options]
+./bin/dpro -i <input> -o <output> [options]
 ```
 
 ### Core Arguments
@@ -124,76 +116,103 @@ The executable will be generated as `bin/dpro`.
 - **Reference**: FASTA format reference genomes (optional)
 
 ## Output Structure
+### Pipeline Stages
+1. **PDR (Primer Design Region) Optimization** - Identifies high-quality, conserved regions with sufficient primer candidates and achieves optimal tiling coverage through constrained optimization
+2. **Primer Selection** - Uses Primer3 algorithm to generate high-quality primer pairs with proper thermodynamic constraints within optimized regions
+3. **Off-target Screening** - Reference genome analysis using k-mer based searching with thermodynamic filtering to remove primers with potential off-target binding
+4. **Dimer Minimization** - Employs multiple optimization algorithms (Random Search, Simulated Annealing, Tabu Search, Genetic Algorithm) to select primer sets with minimal primer-dimer formation potential
+
+### Output Structure
 
 The pipeline generates comprehensive analysis reports:
 
-### TABLE A1: Filtered Primer Pairs
+### PDR Optimization Results
 ```
-Output  Index  Direction  dG        Sequence                    Reason
-------  -----  ---------  --------  --------------------------  --------------
-3       1      F          -17132.7  AATTGGCCTTAATTGGCCTT...     Forward primer
-3       1      R          -17132.7  CCTTAACCGGAATTGGCCAA...     Reverse primer
+PDRs: 20
+uncovered: 3 (front), 308 (rear)
+loss: 109.869
+
+Search for optimal PDR...
+--------------------------------------------
+    iter          u'       loss'        loss
+--------------------------------------------
+       1        5000        9000     257.973
+       2        2500        4500     257.973
+       ......   ......      ......    ......
+      17     52.5665     109.869     109.869
+--------------------------------------------
+Search completed!
 ```
 
-### TABLE A2: Filtered Standalone Primers  
+### Primer Selection Summary
 ```
-Output  Index  Type  dG        Sequence                    Reason
-------  -----  ----  --------  --------------------------  ---------------
-2       39     R     -17129.2  ATGCGATCGATCGATCGATC...     Standalone right
-7       39     L     -20314.9  AAATTTGGGCCCAAATTTGG...     Standalone left
-```
-
-### TABLE B: Output Summary
-```
-Output  Original (P/L/R)  Removed (P/L/R)  Final (P/L/R)  Status
-------  ----------------  ---------------  -------------  ----------
-0       10/63/5           0/0/0            10/63/5        No removal
-3       10/28/45          2/3/8            8/25/37        Filtered
-6       10/19/83          2/3/12           8/16/71        Filtered
-```
-
-### Processing Progress
-```
-Searching reference.fna (threads: 8)
+Starting primer selection for 10 PDRs
+Product size: [252, 460] bp  |  Template length: 3063 bp
 ------------------------------------------------------------
-   Contigs      Chunks    Candidates    Time(s)  Rate(ch/s)
+     Index                PDRs      Left     Right     Pairs
 ------------------------------------------------------------
-      1250        1000            78        30      2.5M
-      2890        2400           156        60      2.8M
+         0            [3, 383]        46        73         5
+         1          [252, 632]        80        19         5
+         2          [585, 965]        47        87         5
+         3         [800, 1180]        50        64         5
+         4        [1122, 1502]        49        20         5
+    ......              ......    ......    ......    ......
 ------------------------------------------------------------
-Found 234 primer candidates
 ```
 
-## Performance Features
-
-- **Multi-threaded processing** with configurable thread counts
-- **Memory-efficient chunked processing** for large genomes  
-- **Progress reporting** with processing rates (characters/second)
-- **Optimized indexing** for fast sequence searching
-
-## Pipeline Stages
-
-1. **Design Region Optimization** - Risk-based primer selection
-2. **Dimer Analysis** - Detection and minimization of primer interactions  
-3. **Off-target Screening** - Reference genome analysis with thermodynamic filtering
-4. **Quality Control** - Advanced filtering with detailed reporting
-
-If no reference file is provided:
+### Off-target Screening Results
 ```
-No ref file provided, skip off target search
+Searching ./scripts/ref/livestock_combined.fna (threads: 8)
+----------------------------------------------------------
+   Contigs      Chunks    Candidates   Time(s)  Rate(ch/s)
+----------------------------------------------------------
+         6          13           269        11       14.1M
+        29          41          2929        35       44.7M
+    ......       ......       ......    ......      ......
+      2358        2387         10943       116       47.0M
+----------------------------------------------------------
+Found 16756 candidates in reference
+Total primers to remove: 5057/5057 (dG <= -15000)
+
+Summary
+--------------------------------------------------------------------------------
+PDR pair  Original (P/L/R)   Removed (P/L/R)     Final (P/L/R)         Threshold
+--------------------------------------------------------------------------------
+       0           5/46/73           5/16/27           0/30/46    -15000.000000
+       1           5/80/19           5/27/14            0/53/5    -15000.000000
+  ......            ......            ......            ......           ......
+       5            5/6/48             0/0/0            5/6/48    -19000.000000*
+--------------------------------------------------------------------------------
+   TOTAL               930               411               519
+--------------------------------------------------------------------------------
 ```
 
-## File Output
+### Dimer Minimization Results
+```
+--------------------------------------------------
+Algorithm                 Cost  Time(ms)    Winner
+--------------------------------------------------
+Random Search       -3223.0680      2485       ✓
+SA                  -3223.0680     65825
+Tabu Search         -3223.0680      5422
+Genetic             -3223.0680     32909
+--------------------------------------------------
+ Winner: Random Search  cost=-3223.0680  (2485 ms)
+```
 
-- Optimized primer sequences
-- Quality control reports  
-- Off-target analysis results
-- Processing statistics and logs
-
+### Final Solution Primers
+```
+Solution Primers
+-------------------------------------------------------------------------------------------------------------------
+   idx             PDR                    left seq     Tm    GC%                   right seq     Tm    GC%   size
+-------------------------------------------------------------------------------------------------------------------
+     0        [3, 383]        TTAAAATAGTGTCGCCGACG   58.2   45.0      GGATGTTCAGCCTCTAAAGGTT   59.9   45.5    419
+     1      [252, 632]     CGAGTGTTAGATATCACACTGAG   58.0   43.5   TATAATAGTGAACGCTGAAAGGAGG   60.1   40.0    411
+     2      [585, 965]      GTATTGAAATGTTTCACGCAGC   58.9   40.9      GATACGGAGGAGGAACCTAAGG   60.9   54.5    403
+     ......      ......              ......       ......   ......              ......       ......   ......    ......
+-------------------------------------------------------------------------------------------------------------------
+```
 ## License
 
 This project is licensed under the MIT License.
 
-## Support
-
-For questions or issues, please open an issue on the GitHub repository.
