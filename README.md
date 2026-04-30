@@ -125,7 +125,7 @@ The executable will be generated as `bin/dpro`.
 
 The pipeline generates comprehensive analysis reports:
 
-### PDR Optimization Results
+#### PDR Optimization Results
 ```
 PDRs: 20
 uncovered: 3 (front), 308 (rear)
@@ -143,7 +143,7 @@ Search for optimal PDR...
 Search completed!
 ```
 
-### Primer Selection Summary
+#### Primer Selection Summary
 ```
 Starting primer selection for 10 PDRs
 Product size: [252, 460] bp  |  Template length: 3063 bp
@@ -159,7 +159,7 @@ Product size: [252, 460] bp  |  Template length: 3063 bp
 ------------------------------------------------------------
 ```
 
-### Off-target Screening Results
+#### Off-target Screening Results
 ```
 Searching ./scripts/ref/livestock_combined.fna (threads: 8)
 ----------------------------------------------------------
@@ -186,7 +186,7 @@ PDR pair  Original (P/L/R)   Removed (P/L/R)     Final (P/L/R)         Threshold
 --------------------------------------------------------------------------------
 ```
 
-### Dimer Minimization Results
+#### Dimer Minimization Results
 ```
 --------------------------------------------------
 Algorithm                 Cost  Time(ms)    Winner
@@ -199,7 +199,7 @@ Genetic             -3223.0680     32909
  Winner: Random Search  cost=-3223.0680  (2485 ms)
 ```
 
-### Final Solution Primers
+#### Final Solution Primers
 ```
 Solution Primers
 -------------------------------------------------------------------------------------------------------------------
