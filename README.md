@@ -1,8 +1,8 @@
 
 
-# DPRO - Primer Design and Off-Target Analysis Tool
+# Δ-PRO: Primer Design and Off-Target Analysis Tool
 
-DPRO is a comprehensive C++ tool for multiplex PCR primer design optimization and tiling that implements a four-stage pipeline: PDR (Primer Design Region) optimization to identify high-quality, conserved regions with sufficient primer candidates; primer selection using the established Primer3 algorithm to generate high-quality primer pairs with proper thermodynamic constraints; off-target screening against reference databases using k-mer based searching to filter primers with potential off-target binding; and dimer minimization using multiple optimization algorithms to select primer sets with minimal primer-dimer formation potential, ensuring both specificity and compatibility for successful multiplex PCR amplification and tiling coverage.
+Δ-PRO is a comprehensive C++ tool for multiplex PCR primer design optimization and tiling that implements a four-stage pipeline: PDR (Primer Design Region) optimization to identify high-quality, conserved regions with sufficient primer candidates; primer selection using the established Primer3 algorithm to generate high-quality primer pairs with proper thermodynamic constraints; off-target screening against reference databases using k-mer based searching to filter primers with potential off-target binding; and dimer minimization using multiple optimization algorithms to select primer sets with minimal primer-dimer formation potential, ensuring both specificity and compatibility for successful multiplex PCR amplification and tiling coverage.
 
 ## Installation
 
@@ -180,7 +180,6 @@ PDR pair  Original (P/L/R)   Removed (P/L/R)     Final (P/L/R)         Threshold
        0           5/46/73           5/16/27           0/30/46    -15000.000000
        1           5/80/19           5/27/14            0/53/5    -15000.000000
   ......            ......            ......            ......           ......
-       5            5/6/48             0/0/0            5/6/48    -19000.000000*
 --------------------------------------------------------------------------------
    TOTAL               930               411               519
 --------------------------------------------------------------------------------
@@ -208,10 +207,16 @@ Solution Primers
      0        [3, 383]        TTAAAATAGTGTCGCCGACG   58.2   45.0      GGATGTTCAGCCTCTAAAGGTT   59.9   45.5    419
      1      [252, 632]     CGAGTGTTAGATATCACACTGAG   58.0   43.5   TATAATAGTGAACGCTGAAAGGAGG   60.1   40.0    411
      2      [585, 965]      GTATTGAAATGTTTCACGCAGC   58.9   40.9      GATACGGAGGAGGAACCTAAGG   60.9   54.5    403
-     ......      ......              ......       ......   ......              ......       ......   ......    ......
+     ......     ......                      ...... ...... ......                      ...... ...... ...... ......
 -------------------------------------------------------------------------------------------------------------------
 ```
 ## License
-
 This project is licensed under the MIT License.
+
+## Citation
+If you use Δ-PRO in your research, please cite: 
+Scaling Variant-Aware Multiplex Primer Design 
+Yunheng Han, Christina Boucher 
+bioRxiv 2026.02.03.703607
+doi: https://doi.org/10.64898/2026.02.03.703607
 
