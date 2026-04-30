@@ -1,4 +1,5 @@
 
+
 # DPRO - Primer Design and Off-Target Analysis Tool
 
 DPRO is a comprehensive C++ tool for multiplex PCR primer design optimization and tiling that implements a four-stage pipeline: PDR (Primer Design Region) optimization to identify high-quality, conserved regions with sufficient primer candidates; primer selection using the established Primer3 algorithm to generate high-quality primer pairs with proper thermodynamic constraints; off-target screening against reference databases using k-mer based searching to filter primers with potential off-target binding; and dimer minimization using multiple optimization algorithms to select primer sets with minimal primer-dimer formation potential, ensuring both specificity and compatibility for successful multiplex PCR amplification and tiling coverage.
@@ -11,10 +12,11 @@ DPRO is a comprehensive C++ tool for multiplex PCR primer design optimization an
 
 ### Build
 ```bash
-git clone <repo_url>
+git clone https://github.com/yhhan19/primer-design-tools.git
 cd primer-design-tools
 make PRIMER3=/path/to/primer3
 ```
+**Note:** Replace `/path/to/primer3` with the actual path to the Primer3 installation directory.
 The executable will be generated as `bin/dpro`.
 
 ## Usage
@@ -31,9 +33,9 @@ The executable will be generated as `bin/dpro`.
 -h, --help   Show help message
 ```
 
-## Parameters
+### Other Parameters
 
-### Search Parameters
+#### Search Parameters
 ```bash
 -k <int>       Kmer length for indexing (default: 15)
 -H <int>       Hamming distance threshold (default: 3)  
@@ -43,7 +45,7 @@ The executable will be generated as `bin/dpro`.
 -B <int>       I/O block size (default: 8192)
 ```
 
-### Optimization Parameters
+#### Optimization Parameters
 ```bash
 -Ln <int>     Maximum amplicon length (default: 420)
 -Lx <int>     Minimum amplicon length (default: 252)  
@@ -54,7 +56,7 @@ The executable will be generated as `bin/dpro`.
 -S <int>      Random seed (default: 42)
 ```
 
-### Thermodynamic Parameters  
+#### Thermodynamic Parameters  
 ```bash
 -G <double>     dG threshold for filtering (default: -20000.0)
 --mv <double>   Monovalent concentration mM (default: 50.0)
@@ -97,8 +99,6 @@ The executable will be generated as `bin/dpro`.
   -o analysis_results/ \
   -r combined_genomes.fna \
   -t 32 \
-  -C 200000 \
-  -B 16384
 
 # Custom thermodynamic conditions
 ./bin/dpro \
