@@ -47,7 +47,7 @@ class RiskOptimizer {
         struct RiskWeights {
             double diversity = 1.0;
             double gaps = 1.0;
-            double ambiguity = 0.0;
+            double ambiguity = 1.0;
             double entropy = 0.0;
             double conservation = 0.0;
             double gc_deviation = 0.0;

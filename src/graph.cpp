@@ -21,14 +21,15 @@ KPartiteGraph::KPartiteGraph(const std::vector<PrimerOutput>& input) {
         }
     };
 
-    // count total edges to compute
-    std::size_t total_edges = 0;
+    // collect all edges to compute
+    std::vector<std::pair<index_t, index_t>> edges;
     for (index_t i = 0; i < K * N; i++)
         for (index_t j = i + 1; j < K * N; j++)
             if (part(i) != part(j) && get_oligo(i) && get_oligo(j))
-                total_edges++;
+                edges.emplace_back(i, j);
 
-    const int TW = 14 + 4 + 10 + 6; // = 34
+    std::size_t total_edges = edges.size();
+    const int TW = 14 + 4 + 10 + 6;
     std::cout << "K = " << K << " N = " << N
               << " nodes = " << K * N << "\n"
               << "edges to compute = " << total_edges << "\n\n"
@@ -43,44 +44,54 @@ KPartiteGraph::KPartiteGraph(const std::vector<PrimerOutput>& input) {
               << std::string(TW, '-') << "\n";
 
     graph = new weight_t*[K * N];
-    for (index_t i = 0; i < K * N; i++)
-        graph[i] = new weight_t[K * N];
-
-    std::size_t count = 0;
-    std::size_t step  = std::max((std::size_t)1, total_edges / 20);
-    std::size_t next  = step;
-
     for (index_t i = 0; i < K * N; i++) {
-        for (index_t j = i + 1; j < K * N; j++) {
-            if (part(i) == part(j)) {
-                graph[i][j] = graph[j][i] = 0;
-                continue;
-            }
-            graph[i][j] = graph[j][i] = -1e6;
-            const Oligo* oi = get_oligo(i);
-            const Oligo* oj = get_oligo(j);
-            if (oi && oj) {
-                graph[i][j] = graph[j][i] = // - (weight_t) (rand() % 20000);
-                    Thal::compute_dimer_dg(oi->seq, oj->seq);
-                count++;
-                if (count >= next) {
-                    int pct = (int)(100.0 * count / total_edges);
-                    std::cout << std::right
-                              << std::setw(14) << count
-                              << std::setw(4)  << " / "
-                              << std::setw(10) << total_edges
-                              << std::setw(5)  << pct << "%\n";
-                    next += step;
-                }
-            }
-        }
+        graph[i] = new weight_t[K * N];
+        for (index_t j = 0; j < K * N; j++)
+            graph[i][j] = (part(i) == part(j)) ? 0 : -1e6;
     }
-    std::cout << std::string(TW, '-') << "\n"
-              << "Computed " << count << " edge weights.\n\n";
 
     vertices = new weight_t[K * N];
     for (index_t i = 0; i < K * N; i++)
         vertices[i] = 0;
+
+    // precompute results in parallel
+    std::vector<weight_t> results(edges.size());
+    std::atomic<std::size_t> count(0);
+    std::size_t step = std::max((std::size_t)1, total_edges / 20);
+
+    unsigned int nthreads = std::thread::hardware_concurrency();
+    std::vector<std::thread> threads(nthreads);
+
+    for (unsigned int t = 0; t < nthreads; t++) {
+        threads[t] = std::thread([&, t]() {
+            for (std::size_t e = t; e < edges.size(); e += nthreads) {
+                auto [i, j] = edges[e];
+                results[e] = Thal::compute_dimer_dg(get_oligo(i)->seq, get_oligo(j)->seq);
+                std::size_t c = count.fetch_add(1) + 1;
+                if (c % step == 0) {
+                    int pct = (int)(100.0 * c / total_edges);
+                    // lock for clean cout
+                    static std::mutex mtx;
+                    std::lock_guard<std::mutex> lock(mtx);
+                    std::cout << std::right
+                              << std::setw(14) << c
+                              << std::setw(4)  << " / "
+                              << std::setw(10) << total_edges
+                              << std::setw(5)  << pct << "%\n";
+                }
+            }
+        });
+    }
+    for (auto& th : threads) th.join();
+
+    // write results to graph (single threaded, no races)
+    for (std::size_t e = 0; e < edges.size(); e++) {
+        auto [i, j] = edges[e];
+        graph[i][j] = graph[j][i] = results[e];
+    }
+
+    std::cout << std::string(TW, '-') << "\n"
+              << "Computed " << count << " edge weights.\n\n";
 }
 
 KPartiteGraph::KPartiteGraph(index_t K, index_t N) {
@@ -157,7 +168,7 @@ weight_t KPartiteGraph::cost(index_t *solution) {
             total += graph[i_][j_];
         }
     }
-    return total;
+    return total / K / (K - 1) * 2;
 }
 
 weight_t KPartiteGraph::cost(std::vector<index_t> solution) {
@@ -169,7 +180,7 @@ weight_t KPartiteGraph::cost(std::vector<index_t> solution) {
             total += graph[i_][j_];
         }
     }
-    return total;
+    return total / K / (K - 1) * 2;
 }
 
 weight_t KPartiteGraph::dfs(index_t k, index_t *solution, std::size_t *count) {
@@ -375,8 +386,8 @@ std::vector<index_t> KPartiteGraph::random_search_single_fast(std::size_t restar
         if (improved || r % 1000 == 0) {
             std::cout << std::right << std::fixed
                       << std::setw(10) << r
-                      << std::setw(15) << current
-                      << std::setw(15) << global_best
+                      << std::setw(15) << current / K / (K - 1) * 2
+                      << std::setw(15) << global_best / K / (K - 1) * 2
                       << std::setw(8)  << moves
                       << (improved ? "  *" : "")
                       // << cost(best_solution) << " "
@@ -492,8 +503,8 @@ std::vector<index_t> KPartiteGraph::simulated_annealing(std::size_t restarts) {
                       << std::setw(8)  << (r + 1)
                       << std::setw(16) << T0
                       << std::setw(6)  << steps_done
-                      << std::setw(16) << best_this
-                      << std::setw(14) << global_best
+                      << std::setw(16) << best_this / K / (K - 1) * 2
+                      << std::setw(14) << global_best / K / (K - 1) * 2
                       << std::setw(10) << (improved ? "✓" : "")
                       << "\n";
         }
@@ -603,8 +614,8 @@ std::vector<index_t> KPartiteGraph::tabu_search(std::size_t restarts, std::size_
                       << std::setw(8)  << (r + 1)
                       << std::setw(12) << current
                       << std::setw(14) << iterations
-                      << std::setw(14) << best_this
-                      << std::setw(14) << global_best
+                      << std::setw(14) << best_this / K / (K - 1) * 2
+                      << std::setw(14) << global_best / K / (K - 1) * 2
                       << std::setw(10) << (improved ? "✓" : "")
                       << "\n";
         }
@@ -706,8 +717,8 @@ std::vector<index_t> KPartiteGraph::genetic_algorithm(
         if (improved || (g + 1) % 500 == 0 || g == 0) {
             std::cout << std::fixed << std::setprecision(4)
                       << std::setw(10) << (g + 1)
-                      << std::setw(14) << gen_best
-                      << std::setw(14) << best_obj
+                      << std::setw(14) << gen_best / K / (K - 1) * 2
+                      << std::setw(14) << best_obj / K / (K - 1) * 2
                       << std::setw(10) << (improved ? "✓" : "")
                       << "\n";
         }

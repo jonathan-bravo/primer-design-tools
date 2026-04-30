@@ -10,6 +10,7 @@ std::size_t read_fasta(const std::string &file_name,
     }
     labels.clear(); data.clear();
     std::string line;
+    static const std::string valid = "ATCGNRYSWKMBDHV-";
     while (getline(fin, line)) {
         if (line[0] == '>') {
             labels.push_back(line.substr(1));
@@ -20,7 +21,11 @@ std::size_t read_fasta(const std::string &file_name,
                 if (line[i] >= 'a' && line[i] <= 'z')
                     line[i] = line[i] - 32;
             }
-            data[data.size() - 1] += line;
+            for (char c : line) {
+                if (valid.find(c) != std::string::npos) {
+                    data[data.size() - 1] += c;
+                }
+            }
         }
     }
     fin.close();
@@ -34,6 +39,27 @@ std::size_t read_fasta(const std::string &file_name,
     }
     
     return labels.size();
+}
+
+void write_fasta(const std::string& filename,
+                 const std::vector<std::string>& headers,
+                 const std::vector<std::string>& sequences,
+                 int line_width) {
+    if (headers.size() != sequences.size()) {
+        throw std::invalid_argument("Headers and sequences must have the same length");
+    }
+
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        throw std::runtime_error("Could not open file: " + filename);
+    }
+
+    for (size_t i = 0; i < headers.size(); i++) {
+        file << ">" << headers[i] << "\n";
+        for (size_t j = 0; j < sequences[i].size(); j += line_width) {
+            file << sequences[i].substr(j, line_width) << "\n";
+        }
+    }
 }
 
 bool is_ws(char c) {
@@ -251,6 +277,17 @@ std::string display_PDR(std::vector<index_t> PDR) {
     for (index_t i = 0; i < PDR.size(); i ++) 
         PDRs += std::to_string(PDR[i]) + " ";
     return PDRs;
+}
+
+void char_freq(const std::string& seq) {
+    std::map<char, int> freq;
+    for (char c : seq) {
+        freq[c]++;
+    }
+    for (const auto& [c, count] : freq) {
+        std::cout << "'" << c << "' (ASCII " << (int)c << "): " 
+                  << count << " (" << 100.0 * count / seq.size() << "%)\n";
+    }
 }
 
 std::string msa_consensus(const std::vector<std::string>& msa) {

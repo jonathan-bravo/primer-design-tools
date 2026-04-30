@@ -422,6 +422,8 @@ int main(int argc, char** argv) {
 
         read_fasta(ctx.args.input_file, ctx.labels, ctx.sequences);
         ctx.tmpl = msa_consensus(ctx.sequences);
+        char_freq(ctx.tmpl);
+        write_fasta(ctx.args.output_file + ".tmpl.fasta", {"template"}, {ctx.tmpl}, 80);
 
         Pipeline p;
         p.add(std::make_unique<PDRStage>());

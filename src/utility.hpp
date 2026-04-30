@@ -110,7 +110,7 @@ struct Args {
     double      p3_max_tm   = 63.0;
     double      p3_min_gc   = 40.0;
     double      p3_max_gc   = 60.0;
-    std::size_t num_return  = 10;
+    std::size_t num_return  = 5;
 
     double      mv          = 50.0;
     double      dv          = 1.5;
@@ -137,6 +137,13 @@ struct PipelineContext {
 std::size_t read_fasta(const std::string& file_name,
                        std::vector<std::string>& labels,
                        std::vector<std::string>& data);
+
+void write_fasta(const std::string& filename,
+                 const std::vector<std::string>& headers,
+                 const std::vector<std::string>& sequences,
+                 int line_width);
+
+void char_freq(const std::string& seq);
 
 std::size_t read_rate(std::string filename,
                       std::vector<risk_t>& input);
