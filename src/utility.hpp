@@ -26,6 +26,9 @@
 #include <set>
 #include <map>
 #include <future>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 extern "C" {
 #include "thal.h"
@@ -59,15 +62,20 @@ struct Oligo {
 };
 
 struct PrimerResult {
-    Oligo left;
-    Oligo right;
-    int product_size;
+    Oligo       left, right;
+    std::size_t product_size = 0;
+    index_t     pdr_left     = 0;
+    index_t     pdr_right    = 0;
+    std::size_t segment_id   = 0;
 };
 
 struct PrimerOutput {
     std::vector<PrimerResult> pairs;
     std::vector<Oligo>        left_oligos;
     std::vector<Oligo>        right_oligos;
+    index_t     pdr_left     = 0;
+    index_t     pdr_right    = 0;
+    std::size_t segment_id  = 0;
 };
 
 struct Result {
@@ -123,15 +131,57 @@ struct Args {
     bool        help        = false;
 };
 
+struct SegmentContext {
+    std::string               name;
+    std::vector<std::string>  labels, sequences;
+    std::string               tmpl;
+    std::vector<index_t>      pdr_regions;
+    std::vector<PrimerOutput> candidate_primers, filtered_primers;
+    std::vector<Result>       off_target_hits;
+};
+
 struct PipelineContext {
-    Args                      args;
+    Args                         args;
+    std::vector<SegmentContext>  segments;
+
+    // flat members — stages use these directly, unchanged
     std::string               tmpl;
     std::vector<std::string>  labels, sequences;
     std::vector<index_t>      pdr_regions;
     std::vector<PrimerOutput> candidate_primers, filtered_primers;
-    std::vector<index_t>      dimer_solution;
     std::vector<Result>       off_target_hits;
+
+    // global
+    std::vector<index_t>      dimer_solution;
     std::vector<PrimerResult> solution_primers;
+
+    void load_segment(std::size_t i) {
+        current_seg_      = i;
+        auto& seg         = segments[i];
+        tmpl              = seg.tmpl;
+        labels            = seg.labels;
+        sequences         = seg.sequences;
+        pdr_regions       = seg.pdr_regions;
+        candidate_primers = seg.candidate_primers;
+        filtered_primers  = seg.filtered_primers;
+        off_target_hits   = seg.off_target_hits;
+    }
+
+    void save_segment() {
+        auto& seg             = segments[current_seg_];
+        seg.tmpl              = tmpl;
+        seg.labels            = labels;
+        seg.sequences         = sequences;
+        seg.pdr_regions       = pdr_regions;
+        seg.candidate_primers = candidate_primers;
+        seg.filtered_primers  = filtered_primers;
+        seg.off_target_hits   = off_target_hits;
+    }
+
+    std::size_t current_seg_id() const { return current_seg_; }
+
+private:
+    std::size_t current_seg_ = 0;
 };
 
 std::size_t read_fasta(const std::string& file_name,
@@ -197,8 +247,7 @@ Oligo extract_oligo(const primer_rec& p,
 PrimerOutput extract_all(const p3retval* retval,
                          const seq_args*  sa);
 
-void print_solution(const std::vector<PrimerResult>& solution,
-                    const std::vector<index_t>& pdrs);
+void print_solution(const std::vector<PrimerResult>& solution);
 
 struct RemovalSets {
     std::set<int> remove_pair_F, remove_pair_R, remove_left, remove_right;

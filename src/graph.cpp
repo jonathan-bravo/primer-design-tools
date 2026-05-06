@@ -9,6 +9,14 @@ KPartiteGraph::KPartiteGraph(const std::vector<PrimerOutput>& input) {
                     item.right_oligos.size()));
     }
 
+    valid_N.resize(K);
+    for (index_t k = 0; k < K; ++k) {
+        index_t amp  = k / 2;
+        bool is_left = (k % 2 == 0);
+        valid_N[k] = is_left ? input[amp].left_oligos.size()
+                             : input[amp].right_oligos.size();
+    }
+
     auto get_oligo = [&](index_t idx) -> const Oligo* {
         index_t k = idx / N;
         index_t n = idx % N;
@@ -727,4 +735,99 @@ std::vector<index_t> KPartiteGraph::genetic_algorithm(
     std::cout << std::string(TW, '-') << "\n"
               << "Global best: " << best_obj << "\n";
     return best;
+}
+
+std::vector<index_t> KPartiteGraph::solve_bottleneck(std::size_t restarts, weight_t& out_threshold) {
+    return bottleneck_search(restarts, out_threshold);
+}
+
+std::vector<index_t> KPartiteGraph::bottleneck_search(std::size_t restarts, weight_t& out_threshold) {
+
+    auto full_bottleneck = [&](const std::vector<index_t>& sol, index_t& bn_p) -> weight_t {
+        weight_t min_w = std::numeric_limits<weight_t>::max();
+        for (index_t p = 0; p < K; ++p)
+            for (index_t q = p + 1; q < K; ++q) {
+                weight_t w = graph[index(p, sol[p])][index(q, sol[q])];
+                if (w < min_w) { min_w = w; bn_p = p; }
+            }
+        return min_w;
+    };
+
+    // evaluate swap of bn_p to node n — O(K^2)
+    auto evaluate_bn = [&](std::vector<index_t>& sol, index_t bn_p, index_t n) -> weight_t {
+        index_t  old_n = sol[bn_p];
+        sol[bn_p]      = n;
+        index_t  dummy = 0;
+        weight_t val   = full_bottleneck(sol, dummy);
+        sol[bn_p]      = old_n;
+        return val;
+    };
+
+    std::vector<index_t> best_solution(K, 0);
+    out_threshold = std::numeric_limits<weight_t>::lowest();
+
+    const int TW = 10 + 15 + 15 + 8;
+    std::cout << "\nBottleneck Search  (K=" << K << ", N=" << N
+              << ", restarts=" << restarts << ")\n"
+              << std::string(TW, '-') << "\n"
+              << std::right
+              << std::setw(10) << "restart"
+              << std::setw(15) << "local_opt"
+              << std::setw(15) << "global_best"
+              << std::setw(8)  << "moves"
+              << "\n"
+              << std::string(TW, '-') << "\n";
+
+    for (std::size_t r = 0; r < restarts; ++r) {
+        std::vector<index_t> solution(K);
+        for (index_t p = 0; p < K; ++p)
+            solution[p] = random_between(0, valid_N[p] - 1);
+
+        index_t  bn_p    = 0;
+        weight_t current = full_bottleneck(solution, bn_p);
+        int moves = 0;
+
+        // only ever move bn_p — the only part that can improve the bottleneck
+        // O(N) candidates per iteration, each O(K^2) to evaluate
+        while (true) {
+            int      best_n   = -1;
+            weight_t best_val = current;
+
+            for (index_t n = 0; n < valid_N[bn_p]; ++n) {
+                if (n == solution[bn_p]) continue;
+                weight_t candidate = evaluate_bn(solution, bn_p, n);
+                if (candidate > best_val) {
+                    best_val = candidate;
+                    best_n   = (int)n;
+                }
+            }
+
+            if (best_n == -1) break;  // local optimum — no swap of bn_p helps
+
+            solution[bn_p] = best_n;
+            current = full_bottleneck(solution, bn_p);  // updates bn_p
+            ++moves;
+        }
+
+        bool improved = current > out_threshold;
+        if (improved) {
+            out_threshold = current;
+            best_solution = solution;
+        }
+
+        if (improved || r % 1000 == 0) {
+            std::cout << std::right << std::fixed << std::setprecision(4)
+                      << std::setw(10) << r
+                      << std::setw(15) << current
+                      << std::setw(15) << out_threshold
+                      << std::setw(8)  << moves
+                      << (improved ? "  *" : "")
+                      << "\n";
+        }
+    }
+
+    std::cout << std::string(TW, '-') << "\n"
+              << "Best bottleneck: " << out_threshold << "\n";
+
+    return best_solution;
 }

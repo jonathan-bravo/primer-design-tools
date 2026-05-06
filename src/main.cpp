@@ -420,10 +420,41 @@ int main(int argc, char** argv) {
             return 0;
         }
 
-        read_fasta(ctx.args.input_file, ctx.labels, ctx.sequences);
-        ctx.tmpl = msa_consensus(ctx.sequences);
-        char_freq(ctx.tmpl);
-        write_fasta(ctx.args.output_file + ".tmpl.fasta", {"template"}, {ctx.tmpl}, 80);
+        std::vector<std::string> fasta_files;
+
+        if (fs::is_directory(ctx.args.input_file)) {
+            for (auto& entry : fs::directory_iterator(ctx.args.input_file)) {
+                auto ext = entry.path().extension().string();
+                if (ext == ".fasta" || ext == ".fa") {
+                    fasta_files.push_back(entry.path().string());
+                }
+            }
+            std::sort(fasta_files.begin(), fasta_files.end());
+        } else {
+            // backward-compatible: single FASTA file
+            fasta_files.push_back(ctx.args.input_file);
+        }
+
+        ctx.segments.resize(fasta_files.size());
+
+        for (std::size_t i = 0; i < fasta_files.size(); ++i) {
+            auto& seg = ctx.segments[i];
+            seg.name = fs::path(fasta_files[i]).stem().string();
+
+            std::size_t n = read_fasta(fasta_files[i], seg.labels, seg.sequences);
+            if (n == 0) {
+                throw std::runtime_error("No sequences loaded from: " + fasta_files[i]);
+            }
+
+            seg.tmpl = msa_consensus(seg.sequences);
+            char_freq(seg.tmpl);
+            write_fasta(ctx.args.output_file + "." + seg.name + ".tmpl.fasta",
+                        {"template"}, {seg.tmpl}, 80);
+
+            std::cout << "  [" << (i+1) << "/" << fasta_files.size() << "] "
+                    << seg.name << " — " << n << " sequences, "
+                    << seg.tmpl.size() << " bp\n";
+        }
 
         Pipeline p;
         p.add(std::make_unique<PDRStage>());
@@ -432,7 +463,7 @@ int main(int argc, char** argv) {
         p.add(std::make_unique<DimerStage>());
         p.run(ctx);
 
-        print_solution(ctx.solution_primers, ctx.pdr_regions);
+        print_solution(ctx.solution_primers);
 
         return 0;
     } catch (const std::exception& e) {

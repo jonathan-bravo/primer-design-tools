@@ -765,21 +765,21 @@ std::vector<PrimerOutput> filterByDG_relax(
     return filtered_outputs;
 }
 
-void print_solution(const std::vector<PrimerResult>& solution,
-                    const std::vector<index_t>& pdrs) {
+void print_solution(const std::vector<PrimerResult>& solution) {
     const int W_IDX  = 6;
+    const int W_SEG  = 6;
     const int W_PDR  = 16;
     const int W_SEQ  = 28;
     const int W_TM   = 7;
     const int W_GC   = 7;
     const int W_SIZE = 7;
-    const int W_DG   = 0;
-    const int TOTAL  = W_IDX + W_PDR + W_SEQ*2 + W_TM*2 + W_GC*2 + W_SIZE + W_DG + 2;
+    const int TOTAL  = W_IDX + W_SEG + W_PDR + W_SEQ*2 + W_TM*2 + W_GC*2 + W_SIZE + 2;
 
     std::cout << "\nSolution Primers\n"
               << std::string(TOTAL, '-') << "\n"
               << std::right
               << std::setw(W_IDX)  << "idx"
+              << std::setw(W_SEG)  << "seg"
               << std::setw(W_PDR)  << "PDR"
               << std::setw(W_SEQ)  << "left seq"
               << std::setw(W_TM)   << "Tm"
@@ -788,24 +788,22 @@ void print_solution(const std::vector<PrimerResult>& solution,
               << std::setw(W_TM)   << "Tm"
               << std::setw(W_GC)   << "GC%"
               << std::setw(W_SIZE) << "size"
-              // << std::setw(W_DG)   << "dG"
               << "\n"
               << std::string(TOTAL, '-') << "\n";
 
+    auto trunc = [](const std::string& s, int w) {
+        return (int)s.size() <= w ? s : s.substr(0, w - 2) + "..";
+    };
+
     for (std::size_t i = 0; i < solution.size(); i++) {
         const PrimerResult& r = solution[i];
-
-        std::string pdr_str = "[" + std::to_string(pdrs[i * 2]) 
-                            + ", " + std::to_string(pdrs[i * 2 + 1]) + "]";
-
-        // truncate sequences if too long
-        auto trunc = [&](const std::string& s, int w) {
-            return s.size() <= (std::size_t)w ? s : s.substr(0, w - 2) + "..";
-        };
+        std::string pdr_str   = "[" + std::to_string(r.pdr_left)
+                              + ", " + std::to_string(r.pdr_right) + "]";
 
         std::cout << std::right
                   << std::setw(W_IDX)  << i
-                  << std::setw(W_PDR)  << pdr_str
+                  << std::setw(W_SEG)  << r.segment_id
+                  << std::setw(W_PDR)  << trunc(pdr_str, W_PDR)
                   << std::setw(W_SEQ)  << trunc(r.left.seq,  W_SEQ)
                   << std::setw(W_TM)   << std::fixed << std::setprecision(1) << r.left.tm
                   << std::setw(W_GC)   << std::fixed << std::setprecision(1) << r.left.gc
@@ -813,7 +811,6 @@ void print_solution(const std::vector<PrimerResult>& solution,
                   << std::setw(W_TM)   << std::fixed << std::setprecision(1) << r.right.tm
                   << std::setw(W_GC)   << std::fixed << std::setprecision(1) << r.right.gc
                   << std::setw(W_SIZE) << r.product_size
-                  // << std::setw(W_DG)   << std::fixed << std::setprecision(1) << r.dimer_dg
                   << "\n";
     }
 
