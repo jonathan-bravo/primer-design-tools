@@ -83,4 +83,29 @@ class RiskOptimizer {
         risk_t top_k_opt_m(risk_t u, std::vector<index_t> &min_PDR, risk_t alpha);
         bool valid(index_t f, index_t r, index_t f_, index_t r_);
         risk_t top_k_opt_mi(risk_t u, std::vector<index_t> &min_PDR, risk_t alpha);
+
+        std::vector<risk_t> row_prefix_;
+        std::vector<key_t>  row_prefix_key_;
+        index_t             row_prefix_band_ = 0;
+
+        void init_row_prefix(index_t band) {
+            if (band == row_prefix_band_) {
+                std::fill(row_prefix_.begin(),     row_prefix_.end(),     INF);
+                std::fill(row_prefix_key_.begin(), row_prefix_key_.end(), 0);
+                return;
+            }
+            row_prefix_band_ = band;
+            row_prefix_.assign((size + 1) * (band + 1), INF);
+            row_prefix_key_.assign((size + 1) * (band + 1), 0);
+        }
+
+        risk_t& rp(index_t r, index_t fi) {
+            return row_prefix_[r * (row_prefix_band_ + 1) + fi];
+        }
+
+        key_t& rpk(index_t r, index_t fi) {
+            return row_prefix_key_[r * (row_prefix_band_ + 1) + fi];
+        }
+
+        risk_t top_k_opt_mi_fast(risk_t u, std::vector<index_t>& min_PDR, risk_t alpha);
 };

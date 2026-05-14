@@ -158,10 +158,12 @@ void OffTargetStage::run(PipelineContext& ctx) {
     convert(all_candidates, labels, sequences);
 
     Automaton *ac = new Automaton(labels, sequences, ctx.args.kmer_len);
-    auto results = ac->search(ctx.args.ref_file,
+    auto results = ac->search_paired(ctx.args.ref_file,
                               ctx.args.kmer_len - 1,
                               ctx.args.threshold,
                               ctx.args.dg_thres,
+                              ctx.args.len_amp_min,
+                              ctx.args.len_amp,
                               ctx.args.chunk_size,
                               ctx.args.block_size,
                               ctx.args.nthreads);

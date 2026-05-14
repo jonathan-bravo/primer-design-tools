@@ -531,6 +531,101 @@ risk_t RiskOptimizer::top_k_opt_mi(risk_t u, std::vector<index_t> &min_PDR, risk
     return min_risk;
 }
 
+risk_t RiskOptimizer::top_k_opt_mi_fast(risk_t u,
+                                    std::vector<index_t>& min_PDR,
+                                    risk_t alpha) {
+    min_PDR.clear();
+
+    const index_t band = max - min + 1;
+    init_row_prefix(band);  // reuse allocation across calls
+
+    risk_t all_min_risk = INF;
+    key_t  all_min_key  = 0;
+
+    auto f_base_fn = [&](index_t r_) -> index_t {
+        return (r_ >= (index_t)max ? r_ - max : 0);
+    };
+
+    for (index_t r = (index_t)max; r <= size - (index_t)len; r++) {
+        index_t fb_r = f_base_fn(r);
+
+        for (index_t f = fb_r; r >= f + (index_t)min; f++) {
+            if (!gc_valid(r) || !gc_valid(f)) continue;
+
+            risk_t min_risk = INF;
+            key_t  min_key  = 0;
+            key_t  k        = to_key_2(r, f);
+
+            if (f <= (index_t)(len * 2)) {
+                min_risk = min_key = 0;
+            } else {
+                index_t r_min = std::max((index_t)max, f + (index_t)len);
+                index_t r_max = (f + r + (index_t)len) / 2 - (index_t)len;
+
+                for (index_t r_ = r_min; r_ <= r_max; r_++) {
+                    if (!gc_valid(r_)) continue;
+                    index_t fb_r_ = f_base_fn(r_);
+
+                    // exact fi_max for this r_
+                    index_t f_max_ = std::min(
+                        (r_ >= (index_t)min ? r_ - (index_t)min : (index_t)0),
+                        (2*f >= (index_t)(len + r_) ?
+                         2*f - (index_t)len - r_ : (index_t)0)
+                    );
+
+                    if (f_max_ < fb_r_) continue;
+                    index_t fi_max_ = std::min(f_max_ - fb_r_, band - 1);
+
+                    // O(1) prefix min lookup for row r_
+                    if (rp(r_, fi_max_) < min_risk) {
+                        min_risk = rp(r_,  fi_max_);
+                        min_key  = rpk(r_, fi_max_);
+                    }
+                }
+            }
+
+            min_risk += cost(f, u, alpha) + cost(r, u, alpha);
+            memo[k]   = min_risk;
+            prev[k]   = min_key;
+
+            // update row prefix for row r at fi
+            index_t fi = f - fb_r;
+            if (min_risk < rp(r, fi)) {
+                rp(r,  fi) = min_risk;
+                rpk(r, fi) = k;
+            }
+
+            if (r >= (index_t)(size - (index_t)len * 3)) {
+                if (min_risk < all_min_risk) {
+                    all_min_risk = min_risk;
+                    all_min_key  = k;
+                }
+            }
+        }
+
+        // build prefix min along fi for completed row r
+        index_t fb_r_ = f_base_fn(r);
+        for (index_t fi = 1; fi < band; fi++) {
+            if (rp(r, fi-1) < rp(r, fi)) {
+                rp(r,  fi) = rp(r,  fi-1);
+                rpk(r, fi) = rpk(r, fi-1);
+            }
+        }
+    }
+
+    // traceback
+    key_t min_key = all_min_key;
+    while (min_key != 0) {
+        index_t a, b;
+        to_index_2(min_key, b, a);
+        min_PDR.push_back(b);
+        min_PDR.push_back(a);
+        min_key = prev[min_key];
+    }
+    std::reverse(min_PDR.begin(), min_PDR.end());
+    return all_min_risk;
+}
+
 std::vector<index_t> RiskOptimizer::search(risk_t lower, 
                                            risk_t upper, 
                                            risk_t eps) {
@@ -554,7 +649,7 @@ std::vector<index_t> RiskOptimizer::search(risk_t lower,
         if (min == max)
             temp = top_k_opt_fast(u, min_PDR, alpha);
         else
-            temp = top_k_opt_mi(u, min_PDR, alpha);
+            temp = top_k_opt_mi_fast(u, min_PDR, alpha);
 
         if (final_PDR.size() == 0 || score(min_PDR, alpha) < score(final_PDR, alpha))
             final_PDR = min_PDR;
