@@ -9,6 +9,8 @@ class RiskOptimizer {
                       index_t len,
                       index_t min,
                       index_t max,
+                      index_t fumax,
+                      index_t rumax,
                       const Args &args);
         RiskOptimizer(std::vector<risk_t> input, index_t len, index_t min, index_t max);
         ~RiskOptimizer();
@@ -65,7 +67,7 @@ class RiskOptimizer {
         BST **solutions;
         risk_t *memo;
         key_t *prev;
-        index_t size, len, min, max;
+        index_t size, len, min, max, fumax, rumax;
         risk_t *risk, *prefix_sum;
         std::size_t *gc;
         Args args;

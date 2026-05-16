@@ -160,8 +160,9 @@ std::vector<risk_t> random_risk(std::size_t size) {
 }
 
 std::size_t random_between(std::size_t min, std::size_t max) {
+    if (min == max) return min;
     std::size_t r = rand() * RAND_MAX + rand();
-    return min + r % (max - min);
+    return min + r % (max - min + 1);  // +1 to make range inclusive
 }
 
 key_t to_key(index_t f, index_t r, index_t f_, index_t r_) {
@@ -767,18 +768,20 @@ std::vector<PrimerOutput> filterByDG_relax(
 
 void print_solution(const std::vector<PrimerResult>& solution) {
     const int W_IDX  = 6;
+    const int W_POOL = 6;
     const int W_SEG  = 6;
     const int W_PDR  = 16;
     const int W_SEQ  = 28;
     const int W_TM   = 7;
     const int W_GC   = 7;
     const int W_SIZE = 7;
-    const int TOTAL  = W_IDX + W_SEG + W_PDR + W_SEQ*2 + W_TM*2 + W_GC*2 + W_SIZE + 2;
+    const int TOTAL  = W_IDX + W_POOL + W_SEG + W_PDR + W_SEQ*2 + W_TM*2 + W_GC*2 + W_SIZE + 2;
 
     std::cout << "\nSolution Primers\n"
               << std::string(TOTAL, '-') << "\n"
               << std::right
               << std::setw(W_IDX)  << "idx"
+              << std::setw(W_POOL) << "pool"
               << std::setw(W_SEG)  << "seg"
               << std::setw(W_PDR)  << "PDR"
               << std::setw(W_SEQ)  << "left seq"
@@ -802,6 +805,7 @@ void print_solution(const std::vector<PrimerResult>& solution) {
 
         std::cout << std::right
                   << std::setw(W_IDX)  << i
+                  << std::setw(W_POOL) << r.pool
                   << std::setw(W_SEG)  << r.segment_id
                   << std::setw(W_PDR)  << trunc(pdr_str, W_PDR)
                   << std::setw(W_SEQ)  << trunc(r.left.seq,  W_SEQ)

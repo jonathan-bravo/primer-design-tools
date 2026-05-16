@@ -67,6 +67,7 @@ struct PrimerResult {
     index_t     pdr_left     = 0;
     index_t     pdr_right    = 0;
     std::size_t segment_id   = 0;
+    std::size_t pool         = 0;
 };
 
 struct PrimerOutput {
@@ -98,6 +99,8 @@ struct Args {
     std::size_t len_amp     = 420;
     std::size_t len_amp_min = 252;
     std::size_t len_PDR     = 40;
+    std::size_t len_ru      = 80;
+    std::size_t len_fu      = 80;
     double      u_max       = 10000;
     double      u_min       = 0.1;
 

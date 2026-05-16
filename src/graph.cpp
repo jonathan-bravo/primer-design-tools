@@ -743,17 +743,29 @@ std::vector<index_t> KPartiteGraph::solve_bottleneck(std::size_t restarts, weigh
 
 std::vector<index_t> KPartiteGraph::bottleneck_search(std::size_t restarts, weight_t& out_threshold) {
 
+    // Guard: if any partition is empty the problem is infeasible
+    for (index_t p = 0; p < K; ++p) {
+        if (valid_N[p] == 0) {
+            std::cerr << "bottleneck_search: partition " << p << " has no valid nodes\n";
+            out_threshold = std::numeric_limits<weight_t>::lowest();
+            return std::vector<index_t>(K, 0);
+        }
+    }
+
     auto full_bottleneck = [&](const std::vector<index_t>& sol, index_t& bn_p) -> weight_t {
         weight_t min_w = std::numeric_limits<weight_t>::max();
-        for (index_t p = 0; p < K; ++p)
+        for (index_t p = 0; p < K; ++p) {
+            // Guard: sol[p] must be within valid range
+            assert(sol[p] < valid_N[p]);
             for (index_t q = p + 1; q < K; ++q) {
+                assert(sol[q] < valid_N[q]);
                 weight_t w = graph[index(p, sol[p])][index(q, sol[q])];
                 if (w < min_w) { min_w = w; bn_p = p; }
             }
+        }
         return min_w;
     };
 
-    // evaluate swap of bn_p to node n — O(K^2)
     auto evaluate_bn = [&](std::vector<index_t>& sol, index_t bn_p, index_t n) -> weight_t {
         index_t  old_n = sol[bn_p];
         sol[bn_p]      = n;
@@ -787,8 +799,6 @@ std::vector<index_t> KPartiteGraph::bottleneck_search(std::size_t restarts, weig
         weight_t current = full_bottleneck(solution, bn_p);
         int moves = 0;
 
-        // only ever move bn_p — the only part that can improve the bottleneck
-        // O(N) candidates per iteration, each O(K^2) to evaluate
         while (true) {
             int      best_n   = -1;
             weight_t best_val = current;
@@ -802,10 +812,10 @@ std::vector<index_t> KPartiteGraph::bottleneck_search(std::size_t restarts, weig
                 }
             }
 
-            if (best_n == -1) break;  // local optimum — no swap of bn_p helps
+            if (best_n == -1) break;
 
             solution[bn_p] = best_n;
-            current = full_bottleneck(solution, bn_p);  // updates bn_p
+            current = full_bottleneck(solution, bn_p);
             ++moves;
         }
 

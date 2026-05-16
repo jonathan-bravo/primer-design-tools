@@ -8,6 +8,8 @@ void PDRStage::run(PipelineContext& ctx) {
                      ctx.args.len_PDR, 
                      ctx.args.len_amp, 
                      ctx.args.len_amp,
+                     ctx.args.len_fu,
+                     ctx.args.len_ru,
                      ctx.args);
 
     auto PDR = ro.search(0, ctx.args.u_max, ctx.args.u_min);
@@ -194,6 +196,7 @@ void OffTargetStage::run(PipelineContext& ctx) {
     }
 }
 
+/*
 void DimerStage::run(PipelineContext& ctx) {
     srand(ctx.args.seed);
 
@@ -277,6 +280,114 @@ void DimerStage::run(PipelineContext& ctx) {
 
         ctx.solution_primers.push_back(result);
     }
+}
+*/
+
+void DimerStage::run(PipelineContext& ctx) {
+    srand(ctx.args.seed);
+
+    Thal::init(std::string(PRIMER3_PATH) + "/src/primer3_config", 
+        ctx.args.mv, 
+        ctx.args.dv, 
+        ctx.args.dntp, 
+        ctx.args.dna_conc, 
+        ctx.args.temp);
+
+    using Clock = std::chrono::steady_clock;
+    using Ms    = std::chrono::milliseconds;
+
+    // Split filtered_primers into two pools by alternating per segment
+    // seg_order[segment_id] = running count so we can alternate
+    std::unordered_map<std::size_t, int> seg_order;
+    std::vector<PrimerOutput> pool1_primers, pool2_primers;
+    // track original index so we can reconstruct later
+    std::vector<std::size_t>  pool1_idx,    pool2_idx;
+
+    for (std::size_t i = 0; i < ctx.filtered_primers.size(); i++) {
+        const PrimerOutput& po = ctx.filtered_primers[i];
+        int& cnt = seg_order[po.segment_id];
+        if (cnt % 2 == 0) {
+            pool1_primers.push_back(po);
+            pool1_idx.push_back(i);
+        } else {
+            pool2_primers.push_back(po);
+            pool2_idx.push_back(i);
+        }
+        cnt++;
+    }
+
+    struct Result {
+        std::string          name;
+        std::vector<index_t> solution;
+        long                 ms;
+        weight_t             cost;
+    };
+
+    auto solve_pool = [&](const std::vector<PrimerOutput>& primers,
+                          int pool_num) -> std::vector<index_t>
+    {
+        KPartiteGraph g(primers);
+        weight_t bottleneck_threshold = 0;
+
+        auto t0  = Clock::now();
+        auto sol = g.solve_bottleneck(ctx.args.iter * 10, bottleneck_threshold);
+        auto ms  = std::chrono::duration_cast<Ms>(Clock::now() - t0).count();
+
+        std::cout << "\nPool " << pool_num
+                  << "  cost=" << g.cost(sol)
+                  << "  (" << ms << " ms)\n";
+
+        return sol;
+    };
+
+    auto sol1 = solve_pool(pool1_primers, 1);
+    auto sol2 = solve_pool(pool2_primers, 2);
+
+    // Reconstruct PrimerResult for pool 1
+    for (std::size_t amp = 0; amp < pool1_primers.size(); amp++) {
+        index_t left_n  = sol1[amp * 2];
+        index_t right_n = sol1[amp * 2 + 1];
+
+        const PrimerOutput& po = pool1_primers[amp];
+        PrimerResult result;
+        result.left         = po.left_oligos[left_n];
+        result.right        = po.right_oligos[right_n];
+        result.product_size = result.right.start - result.left.start + result.right.length;
+        result.pdr_left     = po.pdr_left;
+        result.pdr_right    = po.pdr_right;
+        result.segment_id   = po.segment_id;
+        result.pool         = 1;
+
+        ctx.solution_primers.push_back(result);
+    }
+
+    // Reconstruct PrimerResult for pool 2
+    for (std::size_t amp = 0; amp < pool2_primers.size(); amp++) {
+        index_t left_n  = sol2[amp * 2];
+        index_t right_n = sol2[amp * 2 + 1];
+
+        const PrimerOutput& po = pool2_primers[amp];
+        PrimerResult result;
+        result.left         = po.left_oligos[left_n];
+        result.right        = po.right_oligos[right_n];
+        result.product_size = result.right.start - result.left.start + result.right.length;
+        result.pdr_left     = po.pdr_left;
+        result.pdr_right    = po.pdr_right;
+        result.segment_id   = po.segment_id;
+        result.pool         = 2;
+
+        ctx.solution_primers.push_back(result);
+    }
+
+    // Sort solution_primers back to original amplicon order
+    std::vector<std::size_t> all_idx;
+    all_idx.insert(all_idx.end(), pool1_idx.begin(), pool1_idx.end());
+    all_idx.insert(all_idx.end(), pool2_idx.begin(), pool2_idx.end());
+
+    std::vector<PrimerResult> sorted(ctx.solution_primers.size());
+    for (std::size_t i = 0; i < all_idx.size(); i++)
+        sorted[all_idx[i]] = ctx.solution_primers[i];
+    ctx.solution_primers = std::move(sorted);
 }
 
 void Pipeline::run(PipelineContext& ctx) {

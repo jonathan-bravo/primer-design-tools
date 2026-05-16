@@ -5,6 +5,8 @@ RiskOptimizer::RiskOptimizer(std::vector<std::string> &labels,
                              index_t len,
                              index_t min,
                              index_t max,
+                             index_t fumax,
+                             index_t rumax,
                              const Args &args) {
     std::vector<risk_t> input = compute_risk(data);
     this->tmpl = msa_consensus(data);
@@ -22,6 +24,8 @@ RiskOptimizer::RiskOptimizer(std::vector<std::string> &labels,
     this->len = len;
     this->min = min;
     this->max = max;
+    this->fumax = fumax;
+    this->rumax = rumax;
     memo = new risk_t[KEY_LIMIT];
     prev = new key_t[KEY_LIMIT];
     solution_vector = new std::vector<std::pair<index_t, risk_t>>[size];
@@ -262,7 +266,7 @@ void RiskOptimizer::validate_PDR(std::vector<index_t> PDR) {
 
     }
     std::cout << "PDRs: " << PDR.size() << std::endl;
-    std::cout << "uncovered: " << PDR[0] << " (front), " << size - PDR[PDR.size() - 1] << " (rear)" << std::endl;
+    std::cout << "uncovered: " << PDR[0] << " (front), " << size - PDR[PDR.size() - 1] - len << " (rear)" << std::endl;
     assert(PDR[0] <= len * 2);
     // assert(size - PDR[PDR.size() - 1] <= 3 * len);
     assert(size - PDR[PDR.size() - 1] >= len);
@@ -362,7 +366,7 @@ risk_t RiskOptimizer::top_k_opt_fast(risk_t u, std::vector<index_t> &min_PDR, ri
             key_t k = to_key_2(r, r_);
             risk_t min_risk;
             key_t min_key;
-            if (f_ <= len * 2) {
+            if (f_ <= fumax) {
                 min_risk = cost(f, u, alpha) + cost(r, u, alpha) + cost(f_, u, alpha) + cost(r_, u, alpha);
                 min_key = 0;
             }
@@ -394,7 +398,7 @@ risk_t RiskOptimizer::top_k_opt_fast(risk_t u, std::vector<index_t> &min_PDR, ri
             }
             solution_vector[r].push_back(std::make_pair(r_, min_risk));
             prev[k] = min_key;
-            if (r >= size - max + len) {
+            if (r >= size - rumax) {
                 if (min_risk < all_min_risk) {
                     all_min_risk = min_risk;
                     all_min_key = k;
