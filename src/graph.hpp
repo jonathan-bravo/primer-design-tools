@@ -11,7 +11,7 @@ class KPartiteGraph {
         void random_weights();
         index_t part(index_t i) {return i / N;}
         index_t no(index_t i) {return i % N;}
-        index_t index(index_t k, index_t n) {return k * N + n;}
+        index_t index(index_t k, index_t n) const {return k * N + n;}
         void display();
         weight_t cost(index_t *solution);
         weight_t cost(std::vector<index_t> solution);
@@ -21,9 +21,10 @@ class KPartiteGraph {
         std::vector<index_t> solve_tabu(std::size_t restarts, std::size_t iterations);
         std::vector<index_t> solve_ga(std::size_t pop_size, std::size_t generations, double mutation_rate);
         index_t get_N() { return N; }
+        index_t get_K() { return K; }
         std::vector<index_t> solve_trivial();
         std::vector<index_t> solve_bottleneck(std::size_t restarts, weight_t& out_threshold);
-
+        std::vector<index_t> solve_bottleneck_tabu(std::size_t restarts, std::size_t tenure, std::size_t max_iter, weight_t& out_threshold);
     private:
         weight_t *vertices;
         weight_t **graph, **opt_graph, **opt_graph_2;
@@ -40,4 +41,8 @@ class KPartiteGraph {
         std::vector<index_t> tabu_search(std::size_t restarts, std::size_t iterations);
         std::vector<index_t> genetic_algorithm(std::size_t pop_size, std::size_t generations, double mutation_rate);
         std::vector<index_t> bottleneck_search(std::size_t restarts, weight_t& out_threshold);
+        std::vector<index_t> bottleneck_search_tabu(std::size_t restarts, std::size_t tenure, std::size_t max_iter, weight_t& out_threshold);
+        weight_t             full_bottleneck(const std::vector<index_t>& sol, index_t& bn_p) const;
+        weight_t             evaluate_swap(std::vector<index_t>& sol, index_t p, index_t n) const;
+
 };

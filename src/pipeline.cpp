@@ -126,7 +126,7 @@ void PrimerSelStage::run(PipelineContext& ctx) {
                           << " tmpl= " << tmpl_sub
                           << "\n";
         }
-        
+
         int n_pairs = retval->best_pairs.num_pairs;
         std::string range = "[" + std::to_string(ctx.pdr_regions[i]) +
                             ", " + std::to_string(ctx.pdr_regions[i+1]) + "]";
@@ -342,21 +342,56 @@ void DimerStage::run(PipelineContext& ctx) {
         weight_t             cost;
     };
 
-    auto solve_pool = [&](const std::vector<PrimerOutput>& primers,
+auto solve_pool = [&](const std::vector<PrimerOutput>& primers,
                           int pool_num) -> std::vector<index_t>
     {
         KPartiteGraph g(primers);
-        weight_t bottleneck_threshold = 0;
 
-        auto t0  = Clock::now();
-        auto sol = g.solve_bottleneck(ctx.args.iter * 10, bottleneck_threshold);
-        auto ms  = std::chrono::duration_cast<Ms>(Clock::now() - t0).count();
+        weight_t bn_threshold   = 0;
+        weight_t tabu_threshold = 0;
 
-        std::cout << "\nPool " << pool_num
-                  << "  cost=" << g.cost(sol)
-                  << "  (" << ms << " ms)\n";
+        // --- Bottleneck Search ---
+        auto t0     = Clock::now();
+        auto bn_sol = g.solve_bottleneck(ctx.args.iter * 100, bn_threshold);
+        auto bn_ms  = std::chrono::duration_cast<Ms>(Clock::now() - t0).count();
 
-        return sol;
+        // --- Tabu Search ---
+        auto t1       = Clock::now();
+        auto tabu_sol = g.solve_bottleneck_tabu(20, g.get_K() / 3, ctx.args.iter / 2, tabu_threshold);
+        auto tabu_ms  = std::chrono::duration_cast<Ms>(Clock::now() - t1).count();
+
+        // --- Summary ---
+        const int TW = 16 + 14 + 10 + 10;
+        std::cout << "\nPool " << pool_num << " Summary\n"
+                  << std::string(TW, '-') << "\n"
+                  << std::left  << std::setw(16) << "Method"
+                  << std::right << std::setw(14) << "Bottleneck"
+                                << std::setw(10) << "Time(ms)"
+                                << std::setw(10) << "Winner"
+                  << "\n"
+                  << std::string(TW, '-') << "\n"
+                  << std::left  << std::setw(16) << "Bottleneck"
+                  << std::right << std::fixed << std::setprecision(4)
+                                << std::setw(14) << bn_threshold
+                                << std::setw(10) << bn_ms
+                                << std::setw(10) << (bn_threshold >= tabu_threshold ? "✓" : "")
+                  << "\n"
+                  << std::left  << std::setw(16) << "Tabu"
+                  << std::right << std::fixed << std::setprecision(4)
+                                << std::setw(14) << tabu_threshold
+                                << std::setw(10) << tabu_ms
+                                << std::setw(10) << (tabu_threshold > bn_threshold ? "✓" : "")
+                  << "\n"
+                  << std::string(TW, '-') << "\n";
+
+        // Return the better solution
+        if (tabu_threshold > bn_threshold) {
+            std::cout << " Winner: Tabu\n";
+            return tabu_sol;
+        } else {
+            std::cout << " Winner: Bottleneck\n";
+            return bn_sol;
+        }
     };
 
     auto sol1 = solve_pool(pool1_primers, 1);

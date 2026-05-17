@@ -741,9 +741,33 @@ std::vector<index_t> KPartiteGraph::solve_bottleneck(std::size_t restarts, weigh
     return bottleneck_search(restarts, out_threshold);
 }
 
-std::vector<index_t> KPartiteGraph::bottleneck_search(std::size_t restarts, weight_t& out_threshold) {
+std::vector<index_t> KPartiteGraph::solve_bottleneck_tabu(std::size_t restarts, std::size_t tenure, std::size_t max_iter, weight_t& out_threshold) {
+    return bottleneck_search_tabu(restarts, tenure, max_iter, out_threshold);
+}
 
-    // Guard: if any partition is empty the problem is infeasible
+weight_t KPartiteGraph::full_bottleneck(const std::vector<index_t>& sol, index_t& bn_p) const {
+    weight_t min_w = std::numeric_limits<weight_t>::max();
+    for (index_t p = 0; p < K; ++p) {
+        assert(sol[p] < valid_N[p]);
+        for (index_t q = p + 1; q < K; ++q) {
+            assert(sol[q] < valid_N[q]);
+            weight_t w = graph[index(p, sol[p])][index(q, sol[q])];
+            if (w < min_w) { min_w = w; bn_p = p; }
+        }
+    }
+    return min_w;
+}
+
+weight_t KPartiteGraph::evaluate_swap(std::vector<index_t>& sol, index_t p, index_t n) const {
+    index_t  old_n = sol[p];
+    sol[p]         = n;
+    index_t  dummy = 0;
+    weight_t val   = full_bottleneck(sol, dummy);
+    sol[p]         = old_n;
+    return val;
+}
+
+std::vector<index_t> KPartiteGraph::bottleneck_search(std::size_t restarts, weight_t& out_threshold) {
     for (index_t p = 0; p < K; ++p) {
         if (valid_N[p] == 0) {
             std::cerr << "bottleneck_search: partition " << p << " has no valid nodes\n";
@@ -751,29 +775,6 @@ std::vector<index_t> KPartiteGraph::bottleneck_search(std::size_t restarts, weig
             return std::vector<index_t>(K, 0);
         }
     }
-
-    auto full_bottleneck = [&](const std::vector<index_t>& sol, index_t& bn_p) -> weight_t {
-        weight_t min_w = std::numeric_limits<weight_t>::max();
-        for (index_t p = 0; p < K; ++p) {
-            // Guard: sol[p] must be within valid range
-            assert(sol[p] < valid_N[p]);
-            for (index_t q = p + 1; q < K; ++q) {
-                assert(sol[q] < valid_N[q]);
-                weight_t w = graph[index(p, sol[p])][index(q, sol[q])];
-                if (w < min_w) { min_w = w; bn_p = p; }
-            }
-        }
-        return min_w;
-    };
-
-    auto evaluate_bn = [&](std::vector<index_t>& sol, index_t bn_p, index_t n) -> weight_t {
-        index_t  old_n = sol[bn_p];
-        sol[bn_p]      = n;
-        index_t  dummy = 0;
-        weight_t val   = full_bottleneck(sol, dummy);
-        sol[bn_p]      = old_n;
-        return val;
-    };
 
     std::vector<index_t> best_solution(K, 0);
     out_threshold = std::numeric_limits<weight_t>::lowest();
@@ -805,7 +806,7 @@ std::vector<index_t> KPartiteGraph::bottleneck_search(std::size_t restarts, weig
 
             for (index_t n = 0; n < valid_N[bn_p]; ++n) {
                 if (n == solution[bn_p]) continue;
-                weight_t candidate = evaluate_bn(solution, bn_p, n);
+                weight_t candidate = evaluate_swap(solution, bn_p, n);
                 if (candidate > best_val) {
                     best_val = candidate;
                     best_n   = (int)n;
@@ -813,7 +814,6 @@ std::vector<index_t> KPartiteGraph::bottleneck_search(std::size_t restarts, weig
             }
 
             if (best_n == -1) break;
-
             solution[bn_p] = best_n;
             current = full_bottleneck(solution, bn_p);
             ++moves;
@@ -834,6 +834,111 @@ std::vector<index_t> KPartiteGraph::bottleneck_search(std::size_t restarts, weig
                       << (improved ? "  *" : "")
                       << "\n";
         }
+    }
+
+    std::cout << std::string(TW, '-') << "\n"
+              << "Best bottleneck: " << out_threshold << "\n";
+
+    return best_solution;
+}
+
+std::vector<index_t> KPartiteGraph::bottleneck_search_tabu(std::size_t restarts,
+                                                           std::size_t tenure,
+                                                           std::size_t max_iter,
+                                                           weight_t&   out_threshold) {
+    for (index_t p = 0; p < K; ++p) {
+        if (valid_N[p] == 0) {
+            std::cerr << "bottleneck_search_tabu: partition " << p << " has no valid nodes\n";
+            out_threshold = std::numeric_limits<weight_t>::lowest();
+            return std::vector<index_t>(K, 0);
+        }
+    }
+
+    std::vector<index_t> best_solution(K, 0);
+    out_threshold = std::numeric_limits<weight_t>::lowest();
+
+    const int TW = 10 + 15 + 15 + 10 + 8;
+    std::cout << "\nTabu Search  (K=" << K << ", N=" << N
+              << ", restarts=" << restarts
+              << ", tenure=" << tenure
+              << ", max_iter=" << max_iter << ")\n"
+              << std::string(TW, '-') << "\n"
+              << std::right
+              << std::setw(10) << "restart"
+              << std::setw(15) << "local_opt"
+              << std::setw(15) << "global_best"
+              << std::setw(10) << "iter"
+              << std::setw(8)  << "moves"
+              << "\n"
+              << std::string(TW, '-') << "\n";
+
+    for (std::size_t r = 0; r < restarts; ++r) {
+        // Fresh tabu list and random solution each restart
+        std::vector<std::vector<std::size_t>> tabu(K);
+        for (index_t p = 0; p < K; ++p)
+            tabu[p].assign(valid_N[p], 0);
+
+        std::vector<index_t> solution(K);
+        for (index_t p = 0; p < K; ++p)
+            solution[p] = random_between(0, valid_N[p] - 1);
+
+        index_t  bn_p    = 0;
+        weight_t current = full_bottleneck(solution, bn_p);
+
+        std::vector<index_t> local_best    = solution;
+        weight_t             local_best_cost = current;
+        int moves = 0;
+
+        for (std::size_t iter = 0; iter < max_iter; ++iter) {
+            int      best_n   = -1;
+            index_t  best_p   = 0;
+            weight_t best_val = std::numeric_limits<weight_t>::lowest();
+
+            for (index_t p = 0; p < K; ++p) {
+                for (index_t n = 0; n < valid_N[p]; ++n) {
+                    if (n == solution[p]) continue;
+
+                    bool     is_tabu   = tabu[p][n] > iter;
+                    weight_t candidate = evaluate_swap(solution, p, n);
+
+                    // Aspiration: allow tabu move if it beats global best
+                    if (is_tabu && candidate <= out_threshold) continue;
+
+                    if (candidate > best_val) {
+                        best_val = candidate;
+                        best_n   = (int)n;
+                        best_p   = p;
+                    }
+                }
+            }
+
+            if (best_n == -1) break;
+
+            tabu[best_p][solution[best_p]] = iter + tenure;
+            solution[best_p] = (index_t)best_n;
+            current = full_bottleneck(solution, bn_p);
+            ++moves;
+
+            if (current > local_best_cost) {
+                local_best_cost = current;
+                local_best      = solution;
+            }
+        }
+
+        bool improved = local_best_cost > out_threshold;
+        if (improved) {
+            out_threshold = local_best_cost;
+            best_solution = local_best;
+        }
+
+        std::cout << std::right << std::fixed << std::setprecision(4)
+                  << std::setw(10) << r
+                  << std::setw(15) << local_best_cost
+                  << std::setw(15) << out_threshold
+                  << std::setw(10) << max_iter
+                  << std::setw(8)  << moves
+                  << (improved ? "  *" : "")
+                  << "\n";
     }
 
     std::cout << std::string(TW, '-') << "\n"
