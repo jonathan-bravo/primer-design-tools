@@ -820,3 +820,72 @@ void print_solution(const std::vector<PrimerResult>& solution) {
 
     std::cout << std::string(TOTAL, '-') << "\n\n";
 }
+
+void save_solution(std::vector<SegmentContext>& seg, std::vector<PrimerResult>& solution, const std::string& filename) {
+    std::ofstream out(filename);
+    if (!out) {
+        std::cerr << "Error: could not open output file: " << filename << "\n";
+        return;
+    }
+
+    // Sort by segment_id, then by the earliest start in the pair
+    std::vector<PrimerResult> sorted = solution;
+    std::sort(sorted.begin(), sorted.end(), [](const PrimerResult& a, const PrimerResult& b) {
+        if (a.segment_id != b.segment_id)
+            return a.segment_id < b.segment_id;
+        std::size_t a_min = std::min(a.left.start, a.right.start);
+        std::size_t b_min = std::min(b.left.start, b.right.start);
+        return a_min < b_min;
+    });
+
+    // Flatten into individual primer entries with their strand
+    struct PrimerEntry {
+        std::size_t segment_id;
+        std::size_t start;
+        std::size_t end;
+        std::size_t pool;
+        std::string seq;
+        char        strand;
+        int         amp_idx;  // filled after per-seg counting
+    };
+
+    std::vector<PrimerEntry> entries;
+    std::unordered_map<std::size_t, int> seg_amp_count;
+
+    for (const PrimerResult& r : sorted) {
+        int& cnt = seg_amp_count[r.segment_id];
+        cnt++;
+
+        entries.push_back({ r.segment_id,
+                            r.left.start, r.left.start + r.left.length,
+                            r.pool, r.left.seq, '+', cnt });
+
+        entries.push_back({ r.segment_id,
+                            r.right.start, r.right.start + r.right.length,
+                            r.pool, r.right.seq, '-', cnt });
+    }
+
+    // Sort all individual primers by segment then start position
+    std::sort(entries.begin(), entries.end(), [](const PrimerEntry& a, const PrimerEntry& b) {
+        if (a.segment_id != b.segment_id)
+            return a.segment_id < b.segment_id;
+        return a.start < b.start;
+    });
+
+    for (const PrimerEntry& e : entries) {
+        std::string strand_name = (e.strand == '+') ? "LEFT" : "RIGHT";
+        std::string name = seg[e.segment_id].name + "_"
+                         + std::to_string(e.amp_idx)    + "_"
+                         + strand_name                   + "_1";
+
+        out << seg[e.segment_id].name << "\t"
+            << e.start      << "\t"
+            << e.end        << "\t"
+            << name         << "\t"
+            << e.pool       << "\t"
+            << e.strand     << "\t"
+            << e.seq        << "\n";
+    }
+
+    std::cout << "Solution written to: " << filename << "\n";
+}

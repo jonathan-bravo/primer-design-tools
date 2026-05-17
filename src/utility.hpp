@@ -252,6 +252,8 @@ PrimerOutput extract_all(const p3retval* retval,
 
 void print_solution(const std::vector<PrimerResult>& solution);
 
+void save_solution(std::vector<SegmentContext>& seg, std::vector<PrimerResult>& solution, const std::string& filename);
+
 struct RemovalSets {
     std::set<int> remove_pair_F, remove_pair_R, remove_left, remove_right;
     std::size_t num_return;

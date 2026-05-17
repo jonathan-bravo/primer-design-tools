@@ -465,6 +465,8 @@ int main(int argc, char** argv) {
 
         print_solution(ctx.solution_primers);
 
+        save_solution(ctx.segments, ctx.solution_primers, ctx.args.output_file + ".bed");
+
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << "\n\n";

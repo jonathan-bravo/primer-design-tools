@@ -108,6 +108,25 @@ void PrimerSelStage::run(PipelineContext& ctx) {
         out.segment_id = ctx.current_seg_id();
         ctx.candidate_primers.push_back(out);
 
+        for (const Oligo& o : out.left_oligos) {
+            std::string tmpl_sub = ctx.tmpl.substr(o.start, o.length);
+            if (tmpl_sub != o.seq)
+                std::cout << "  LEFT  MISMATCH start=" << o.start
+                          << " len=" << o.length
+                          << " seq=  " << o.seq
+                          << " tmpl= " << tmpl_sub
+                          << "\n";
+        }
+        for (const Oligo& o : out.right_oligos) {
+            std::string tmpl_sub = ctx.tmpl.substr(o.start, o.length);
+            if (tmpl_sub != o.seq)
+                std::cout << "  RIGHT MISMATCH start=" << o.start
+                          << " len=" << o.length
+                          << " seq=  " << o.seq
+                          << " tmpl= " << tmpl_sub
+                          << "\n";
+        }
+        
         int n_pairs = retval->best_pairs.num_pairs;
         std::string range = "[" + std::to_string(ctx.pdr_regions[i]) +
                             ", " + std::to_string(ctx.pdr_regions[i+1]) + "]";
