@@ -247,4 +247,13 @@ Scaling Variant-Aware Multiplex Primer Design
 Yunheng Han, Christina Boucher 
 bioRxiv 2026.02.03.703607
 doi: https://doi.org/10.64898/2026.02.03.703607
-
+```
+@article{han2026scaling,
+  title   = {Scaling Variant-Aware Multiplex Primer Design},
+  author  = {Han, Yunheng and Boucher, Christina},
+  journal = {bioRxiv},
+  year    = {2026},
+  doi     = {10.64898/2026.02.03.703607},
+  url     = {https://doi.org/10.64898/2026.02.03.703607}
+}
+```
