@@ -1,8 +1,36 @@
-
-
 # Δ-PRO: Primer Design and Off-Target Analysis Tool
 
 Δ-PRO is a comprehensive C++ tool for multiplex PCR primer design optimization and tiling that implements a four-stage pipeline: PDR (Primer Design Region) optimization to identify high-quality, conserved regions with sufficient primer candidates; primer selection using the established Primer3 algorithm to generate high-quality primer pairs with proper thermodynamic constraints; off-target screening against reference databases using k-mer based searching to filter primers with potential off-target binding; and dimer minimization using multiple optimization algorithms to select primer sets with minimal primer-dimer formation potential, ensuring both specificity and compatibility for successful multiplex PCR amplification and tiling coverage.
+
+## Quick Start
+
+The fastest way to run Δ-PRO is to clone the repository, build the `dpro` executable with a local Primer3 installation, and run the pipeline on a FASTA input file.
+
+```bash
+# Clone the repository
+git clone https://github.com/yhhan19/primer-design-tools.git
+cd primer-design-tools
+
+# Build Δ-PRO
+make PRIMER3=/path/to/primer3
+
+# Run the pipeline using example data
+./bin/dpro \
+  -i ./data/sequence.fasta \
+  -o ./data/results
+```
+
+**Note:** Replace `/path/to/primer3` with the actual path to your Primer3 installation directory. For example, if Primer3 is located in the repository directory as `./primer3`, build Δ-PRO with:
+
+```bash
+make PRIMER3=./primer3
+```
+
+The final primer solution will be written to:
+
+```bash
+./data/results.bed
+```
 
 ## Installation
 
