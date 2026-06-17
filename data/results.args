@@ -1,0 +1,42 @@
+# Saved args -- Tue Jun 16 21:48:14 2026
+
+# I/O
+input_file  = ./data/sequence.fasta
+output_file = ./data/results
+
+# PDR
+len_amp     = 420
+len_amp_min = 252
+len_PDR     = 40
+u_max       = 10000
+u_min       = 0.1
+seed        = 42
+
+# Dimer
+iter        = 1000
+
+# Off-target search
+kmer_len    = 8
+threshold   = 2
+nthreads    = 8
+chunk_size  = 100000000
+block_size  = 134217728
+
+# Thermodynamics
+dg_thres    = -15000
+mv          = 50
+dv          = 1.5
+dntp        = 0.6
+dna_conc    = 200
+temp        = 37
+
+# Primer3
+p3_opt_size = 20
+p3_min_size = 18
+p3_max_size = 25
+p3_opt_tm   = 60
+p3_min_tm   = 57
+p3_max_tm   = 63
+p3_min_gc   = 40
+p3_max_gc   = 60
+num_return  = 5
