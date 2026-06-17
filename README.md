@@ -238,8 +238,11 @@ Solution Primers
      ......     ......                      ...... ...... ......                      ...... ...... ...... ......
 -------------------------------------------------------------------------------------------------------------------
 ```
+
 ## License
-This project is licensed under the MIT License.
+
+This project is licensed under the GNU General Public License v3.0 or later.
+See the [LICENSE](LICENSE) file for details.
 
 ## Citation
 If you use Δ-PRO in your research, please cite: 
