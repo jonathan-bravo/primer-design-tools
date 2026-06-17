@@ -179,12 +179,10 @@ void OffTargetStage::run(PipelineContext& ctx) {
     convert(all_candidates, labels, sequences);
 
     Automaton *ac = new Automaton(labels, sequences, ctx.args.kmer_len);
-    auto results = ac->search_paired(ctx.args.ref_file,
+    auto results = ac->search(ctx.args.ref_file,
                               ctx.args.kmer_len - 1,
                               ctx.args.threshold,
                               ctx.args.dg_thres,
-                              ctx.args.len_amp_min,
-                              ctx.args.len_amp,
                               ctx.args.chunk_size,
                               ctx.args.block_size,
                               ctx.args.nthreads);
@@ -342,13 +340,14 @@ void DimerStage::run(PipelineContext& ctx) {
         weight_t             cost;
     };
 
-auto solve_pool = [&](const std::vector<PrimerOutput>& primers,
-                          int pool_num) -> std::vector<index_t>
+    auto solve_pool = [&](const std::vector<PrimerOutput>& primers,
+                      int pool_num) -> std::vector<index_t>
     {
         KPartiteGraph g(primers);
 
         weight_t bn_threshold   = 0;
         weight_t tabu_threshold = 0;
+        weight_t sa_threshold   = 0;
 
         // --- Bottleneck Search ---
         auto t0     = Clock::now();
@@ -360,36 +359,57 @@ auto solve_pool = [&](const std::vector<PrimerOutput>& primers,
         auto tabu_sol = g.solve_bottleneck_tabu(20, g.get_K() / 3, ctx.args.iter / 2, tabu_threshold);
         auto tabu_ms  = std::chrono::duration_cast<Ms>(Clock::now() - t1).count();
 
-        // --- Summary ---
+        // --- SA Search ---
+        // init_temp scaled to score range, cooling chosen to freeze after max_iter steps
+        double      init_temp = 1000.0;
+        std::size_t sa_iter   = ctx.args.iter * 5;
+        double      cooling   = std::exp(std::log(1e-6 / init_temp) / (double)sa_iter);
+        auto t2     = Clock::now();
+        auto sa_sol = g.solve_bottleneck_sa(4000, sa_iter, init_temp, cooling, sa_threshold);
+        auto sa_ms  = std::chrono::duration_cast<Ms>(Clock::now() - t2).count();
+
+        // --- Pick winner ---
+        weight_t best = std::max({ bn_threshold, tabu_threshold, sa_threshold });
+
+        // --- Summary table ---
         const int TW = 16 + 14 + 10 + 10;
         std::cout << "\nPool " << pool_num << " Summary\n"
-                  << std::string(TW, '-') << "\n"
-                  << std::left  << std::setw(16) << "Method"
-                  << std::right << std::setw(14) << "Bottleneck"
+                << std::string(TW, '-') << "\n"
+                << std::left  << std::setw(16) << "Method"
+                << std::right << std::setw(14) << "Bottleneck"
                                 << std::setw(10) << "Time(ms)"
                                 << std::setw(10) << "Winner"
-                  << "\n"
-                  << std::string(TW, '-') << "\n"
-                  << std::left  << std::setw(16) << "Bottleneck"
-                  << std::right << std::fixed << std::setprecision(4)
+                << "\n"
+                << std::string(TW, '-') << "\n"
+                << std::left  << std::setw(16) << "Bottleneck"
+                << std::right << std::fixed << std::setprecision(4)
                                 << std::setw(14) << bn_threshold
                                 << std::setw(10) << bn_ms
-                                << std::setw(10) << (bn_threshold >= tabu_threshold ? "✓" : "")
-                  << "\n"
-                  << std::left  << std::setw(16) << "Tabu"
-                  << std::right << std::fixed << std::setprecision(4)
+                                << std::setw(10) << (bn_threshold == best ? "✓" : "")
+                << "\n"
+                << std::left  << std::setw(16) << "Tabu"
+                << std::right << std::fixed << std::setprecision(4)
                                 << std::setw(14) << tabu_threshold
                                 << std::setw(10) << tabu_ms
-                                << std::setw(10) << (tabu_threshold > bn_threshold ? "✓" : "")
-                  << "\n"
-                  << std::string(TW, '-') << "\n";
+                                << std::setw(10) << (tabu_threshold == best ? "✓" : "")
+                << "\n"
+                << std::left  << std::setw(16) << "SA"
+                << std::right << std::fixed << std::setprecision(4)
+                                << std::setw(14) << sa_threshold
+                                << std::setw(10) << sa_ms
+                                << std::setw(10) << (sa_threshold == best ? "✓" : "")
+                << "\n"
+                << std::string(TW, '-') << "\n";
 
-        // Return the better solution
-        if (tabu_threshold > bn_threshold) {
-            std::cout << " Winner: Tabu\n";
+        // Return the best solution
+        if (sa_threshold == best) {
+            std::cout << " Winner: SA  (cost=" << best << ")\n";
+            return sa_sol;
+        } else if (tabu_threshold == best) {
+            std::cout << " Winner: Tabu  (cost=" << best << ")\n";
             return tabu_sol;
         } else {
-            std::cout << " Winner: Bottleneck\n";
+            std::cout << " Winner: Bottleneck  (cost=" << best << ")\n";
             return bn_sol;
         }
     };

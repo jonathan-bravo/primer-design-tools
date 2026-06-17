@@ -25,6 +25,14 @@ class KPartiteGraph {
         std::vector<index_t> solve_trivial();
         std::vector<index_t> solve_bottleneck(std::size_t restarts, weight_t& out_threshold);
         std::vector<index_t> solve_bottleneck_tabu(std::size_t restarts, std::size_t tenure, std::size_t max_iter, weight_t& out_threshold);
+        // wrapper
+        std::vector<index_t> solve_bottleneck_sa(std::size_t restarts,
+                                                                std::size_t max_iter,
+                                                                double      init_temp,
+                                                                double      cooling,
+                                                                weight_t&   out_threshold) {
+            return bottleneck_search_sa(restarts, max_iter, init_temp, cooling, out_threshold);
+        }
     private:
         weight_t *vertices;
         weight_t **graph, **opt_graph, **opt_graph_2;
@@ -44,5 +52,10 @@ class KPartiteGraph {
         std::vector<index_t> bottleneck_search_tabu(std::size_t restarts, std::size_t tenure, std::size_t max_iter, weight_t& out_threshold);
         weight_t             full_bottleneck(const std::vector<index_t>& sol, index_t& bn_p) const;
         weight_t             evaluate_swap(std::vector<index_t>& sol, index_t p, index_t n) const;
+        // header
+        std::vector<index_t> bottleneck_search_sa(std::size_t restarts, std::size_t max_iter,
+                                                double init_temp, double cooling,
+                                                weight_t& out_threshold);
+
 
 };

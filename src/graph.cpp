@@ -825,7 +825,7 @@ std::vector<index_t> KPartiteGraph::bottleneck_search(std::size_t restarts, weig
             best_solution = solution;
         }
 
-        if (improved || r % 1000 == 0) {
+        if (improved || r % 10000 == 0) {
             std::cout << std::right << std::fixed << std::setprecision(4)
                       << std::setw(10) << r
                       << std::setw(15) << current
@@ -943,6 +943,103 @@ std::vector<index_t> KPartiteGraph::bottleneck_search_tabu(std::size_t restarts,
 
     std::cout << std::string(TW, '-') << "\n"
               << "Best bottleneck: " << out_threshold << "\n";
+
+    return best_solution;
+}
+
+std::vector<index_t> KPartiteGraph::bottleneck_search_sa(std::size_t restarts,
+                                                          std::size_t max_iter,
+                                                          double      init_temp,
+                                                          double      cooling,
+                                                          weight_t&   out_threshold) {
+    for (index_t p = 0; p < K; ++p) {
+        if (valid_N[p] == 0) {
+            std::cerr << "bottleneck_search_sa: partition " << p << " has no valid nodes\n";
+            out_threshold = std::numeric_limits<weight_t>::lowest();
+            return std::vector<index_t>(K, 0);
+        }
+    }
+
+    std::vector<index_t> best_solution(K, 0);
+    out_threshold = std::numeric_limits<weight_t>::lowest();
+
+    const int TW = 10 + 15 + 15 + 10 + 12;
+    std::cout << "\nSA Search  (K=" << K << ", N=" << N
+              << ", restarts=" << restarts
+              << ", max_iter=" << max_iter
+              << ", init_temp=" << init_temp
+              << ", cooling=" << cooling << ")\n"
+              << std::string(TW, '-') << "\n"
+              << std::right
+              << std::setw(10) << "restart"
+              << std::setw(15) << "local_opt"
+              << std::setw(15) << "global_best"
+              << std::setw(10) << "iter"
+              << std::setw(12) << "final_temp"
+              << "\n"
+              << std::string(TW, '-') << "\n";
+
+    for (std::size_t r = 0; r < restarts; ++r) {
+        std::vector<index_t> solution(K);
+        for (index_t p = 0; p < K; ++p)
+            solution[p] = random_between(0, valid_N[p] - 1);
+
+        index_t  bn_p    = 0;
+        weight_t current = full_bottleneck(solution, bn_p);
+
+        std::vector<index_t> local_best     = solution;
+        weight_t             local_best_cost = current;
+
+        double temp = init_temp;
+
+        std::size_t iter = 0;
+        for (; iter < max_iter; ++iter) {
+            // Pick random partition and random candidate node
+            index_t p = random_between(0, K - 1);
+            index_t n = random_between(0, valid_N[p] - 1);
+            if (n == solution[p]) continue;
+
+            weight_t candidate = evaluate_swap(solution, p, n);
+            double   delta     = candidate - current;
+
+            // Accept if better, or with probability exp(delta/temp) if worse
+            bool accept = delta > 0 ||
+                          ((double)rand() / RAND_MAX) < std::exp(delta / temp);
+
+            if (accept) {
+                solution[p] = n;
+                current     = full_bottleneck(solution, bn_p);
+
+                if (current > local_best_cost) {
+                    local_best_cost = current;
+                    local_best      = solution;
+                }
+            }
+
+            temp *= cooling;
+            if (temp < 1e-6) break;  // frozen
+        }
+
+        bool improved = local_best_cost > out_threshold;
+        if (improved) {
+            out_threshold = local_best_cost;
+            best_solution = local_best;
+        }
+        if (improved || r % 100 == 0) {
+        std::cout << std::right << std::fixed << std::setprecision(4)
+                  << std::setw(10) << r
+                  << std::setw(15) << local_best_cost
+                  << std::setw(15) << out_threshold
+                  << std::setw(10) << iter
+                  << std::setw(12) << std::scientific << std::setprecision(2) << temp
+                  << (improved ? "  *" : "")
+                  << "\n";
+        }
+    }
+
+    std::cout << std::string(TW, '-') << "\n"
+              << "Best bottleneck: " << std::fixed << std::setprecision(4)
+              << out_threshold << "\n";
 
     return best_solution;
 }
