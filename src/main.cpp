@@ -411,6 +411,9 @@ static Args parse_args(int argc, char** argv) {
 
 int main(int argc, char** argv) {
     try {
+        Thal::init(std::string(PRIMER3_PATH) + "/src/primer3_config", 50.0, 1.5, 0.6, 250.0, 60.0);
+        Thal::run_tests();          // default Ta=60, Te=72
+        Thal::run_tests(58.0, 72.0); // custom temperatures
         PipelineContext ctx;
 
         ctx.args = parse_args(argc, argv);
