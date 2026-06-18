@@ -20,7 +20,7 @@ make PRIMER3=/path/to/primer3
   -o ./data/results
 ```
 
-**Note:** Replace `/path/to/primer3` with the actual path to your Primer3 installation directory. For example, if Primer3 is located in the repository directory as `./primer3`, build Δ-PRO with:
+**Note:** Replace `/path/to/primer3` with the actual path to your [Primer3](https://github.com/primer3-org/primer3/) installation directory. For example, if Primer3 is located in the repository directory as `./primer3`, build Δ-PRO with:
 
 ```bash
 make PRIMER3=./primer3
