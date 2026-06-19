@@ -4,6 +4,12 @@ PRIMER3  ?= ./primer3
 CXXFLAGS := -O3 -std=c++17 -I$(PRIMER3)/src -pthread \
             -DPRIMER3_PATH=\"$(PRIMER3)\"
 
+# Detect macOS to handle Apple Clang strictness warnings
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+    CXXFLAGS += -Wno-c++11-narrowing
+endif
+
 DEPFLAGS  = -MMD -MP
 
 P3_OBJS := \

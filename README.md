@@ -11,6 +11,15 @@ The fastest way to run Δ-PRO is to clone the repository, build the `dpro` execu
 git clone https://github.com/yhhan19/primer-design-tools.git
 cd primer-design-tools
 
+# If primer3 is not installed on your system
+## Initalize the primer3 submodule
+git submodule update --init --recursive
+
+## Run make on primer3
+cd primer3/src
+make
+cd ../..
+
 # Build Δ-PRO
 make PRIMER3=/path/to/primer3
 
